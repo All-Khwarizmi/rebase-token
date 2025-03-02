@@ -79,10 +79,10 @@ contract RebaseTokenTest is Test {
 
         rebaseToken.mint(ALICE, increaseAmount);
 
-        uint256 interestRateWithTimeElapsed = (INITIAL_INTEREST_RATE * timeElapsed * PRECISION);
+        uint256 interestRateWithTimeElapsed = (INITIAL_INTEREST_RATE * timeElapsed + PRECISION);
 
         uint256 expectedAmount =
-            balanceBefore + (balanceBefore * interestRateWithTimeElapsed / PRECISION) + increaseAmount;
+            (balanceBefore * interestRateWithTimeElapsed / PRECISION) + increaseAmount;
 
         assertEq(rebaseToken.balanceOf(ALICE), expectedAmount);
     }

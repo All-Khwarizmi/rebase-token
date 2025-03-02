@@ -107,7 +107,11 @@ contract RebaseToken is ERC20, Ownable, AccessControl {
      * @param user address of the user
      */
     function balanceOf(address user) public view override returns (uint256) {
-        return (super.balanceOf(user) + _calculateUserAccumulatedInterestSinceLastUpdated(user) / PRECISION);
+        uint256 balance = super.balanceOf(user);
+        if (balance == 0) {
+            return 0;
+        }
+        return (balance * _calculateUserAccumulatedInterestSinceLastUpdated(user) / PRECISION);
     }
 
     /**
@@ -172,7 +176,7 @@ contract RebaseToken is ERC20, Ownable, AccessControl {
     function _calculateUserAccumulatedInterestSinceLastUpdated(address user) internal view returns (uint256) {
         uint256 timeSinceLastUpdated = block.timestamp - s_userLastUpdated[user];
 
-        return ((super.balanceOf(user) * s_userInterestRate[user] * timeSinceLastUpdated) * PRECISION);
+        return (s_userInterestRate[user] * timeSinceLastUpdated + PRECISION);
     }
 
     /////////////////////
