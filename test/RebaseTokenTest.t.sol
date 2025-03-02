@@ -10,9 +10,12 @@ contract RebaseTokenTest is Test {
     uint256 private constant INITIAL_INTEREST_RATE = 5e10;
 
     address private ALICE = makeAddr("Alice");
+    address private BOB = makeAddr("Bob");
+    address private CHARLIE = makeAddr("Charlie");
 
     function setUp() public {
         rebaseToken = new RebaseToken();
+        rebaseToken.grantMintAndBurnRole(address(this));
     }
 
     modifier mint(uint256 amount, address to) {
@@ -88,6 +91,71 @@ contract RebaseTokenTest is Test {
     function testBurnShouldBurnTokensFromUser() public mint(100, ALICE) {
         rebaseToken.burn(ALICE, 100);
         assertEq(rebaseToken.balanceOf(ALICE), 0);
+    }
+
+    function testBurnShouldBurnTheWholeBalanceIfAmountIsMax() public mint(100, ALICE) {
+        rebaseToken.burn(ALICE, type(uint256).max);
+        assertEq(rebaseToken.balanceOf(ALICE), 0);
+    }
+
+    /* transfer */
+    function testTransferShouldTransferTokens() public mint(100, ALICE) {
+        vm.prank(ALICE);
+        rebaseToken.transfer(BOB, 100);
+        assertEq(rebaseToken.balanceOf(ALICE), 0);
+        assertEq(rebaseToken.balanceOf(BOB), 100);
+    }
+
+    function testTransferShouldTransferTheWholeBalanceIfAmountIsMax() public mint(100, ALICE) {
+        vm.prank(ALICE);
+        rebaseToken.transfer(BOB, type(uint256).max);
+        assertEq(rebaseToken.balanceOf(ALICE), 0);
+        assertEq(rebaseToken.balanceOf(BOB), 100);
+    }
+
+    function testTransferShouldAssignInterestRateFromSenderToReceiverIfReceiverHasNoInterestRate()
+        public
+        mint(100, ALICE)
+    {
+        rebaseToken.setInterestRate(INITIAL_INTEREST_RATE - 1);
+
+        vm.prank(ALICE);
+        rebaseToken.transfer(BOB, 100);
+
+        assertEq(rebaseToken.getUserInterestRate(BOB), INITIAL_INTEREST_RATE);
+    }
+
+    /* transferFrom */
+    function testTransferFromShouldTransferTokens() public mint(100, ALICE) {
+        vm.prank(ALICE);
+        rebaseToken.approve(BOB, 100);
+        vm.prank(BOB);
+        rebaseToken.transferFrom(ALICE, CHARLIE, 100);
+        assertEq(rebaseToken.balanceOf(ALICE), 0);
+        assertEq(rebaseToken.balanceOf(CHARLIE), 100);
+    }
+
+    function testTransferFromShouldTransferTheWholeBalanceIfAmountIsMax() public mint(100, ALICE) {
+        vm.prank(ALICE);
+        rebaseToken.approve(BOB, type(uint256).max);
+        vm.prank(BOB);
+        rebaseToken.transferFrom(ALICE, CHARLIE, type(uint256).max);
+        assertEq(rebaseToken.balanceOf(ALICE), 0);
+        assertEq(rebaseToken.balanceOf(CHARLIE), 100);
+    }
+
+    function testTransferFromShouldAssignInterestRateFromSenderToReceiverIfReceiverHasNoInterestRate()
+        public
+        mint(100, ALICE)
+    {
+        rebaseToken.setInterestRate(INITIAL_INTEREST_RATE - 1);
+
+        vm.prank(ALICE);
+        rebaseToken.approve(BOB, 100);
+        vm.prank(BOB);
+        rebaseToken.transferFrom(ALICE, CHARLIE, 100);
+
+        assertEq(rebaseToken.getUserInterestRate(CHARLIE), INITIAL_INTEREST_RATE);
     }
 
     /* getUserInterestRate */
