@@ -62,10 +62,10 @@ contract RebaseToken is ERC20 {
      * @notice The interest rate can only decrease to incentivize/reward early users
      */
     function setInterestRate(uint256 newInterestRate) external {
-        if (newInterestRate < s_interestRate) {
+        if (newInterestRate > s_interestRate) {
             revert RebaseToken__InterestRateCanOnlyDecrease(s_interestRate, newInterestRate);
         }
-        require(newInterestRate <= 100, "Interest rate cannot be greater than 100%");
+        s_interestRate = newInterestRate;
         emit InterestRateChanged(newInterestRate);
     }
 
@@ -126,5 +126,12 @@ contract RebaseToken is ERC20 {
      */
     function getUserInterestRate(address user) external view returns (uint256) {
         return s_userInterestRate[user];
+    }
+
+    /**
+     * @notice Get the current interest rate
+     */
+    function getInterestRate() external view returns (uint256) {
+        return s_interestRate;
     }
 }
