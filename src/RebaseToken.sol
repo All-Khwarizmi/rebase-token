@@ -23,6 +23,7 @@ pragma solidity 0.8.24;
 // external & public view & pure functions
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title RebaseToken
@@ -31,7 +32,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  * @notice Each user has its own interest rate
  * @dev The interest rate can only decrease to incentivize/reward early users
  */
-contract RebaseToken is ERC20 {
+contract RebaseToken is ERC20, Ownable {
     ///////////////////
     // Errors
     ///////////////////
@@ -61,7 +62,7 @@ contract RebaseToken is ERC20 {
      * @param newInterestRate The new interest rate
      * @notice The interest rate can only decrease to incentivize/reward early users
      */
-    function setInterestRate(uint256 newInterestRate) external {
+    function setInterestRate(uint256 newInterestRate) external onlyOwner {
         if (newInterestRate > s_interestRate) {
             revert RebaseToken__InterestRateCanOnlyDecrease(s_interestRate, newInterestRate);
         }
@@ -81,6 +82,20 @@ contract RebaseToken is ERC20 {
     }
 
     /**
+     *  Burn tokens from the user
+     * @param from address to burn tokens from
+     * @param amount  amount of tokens to burn
+     * @dev If amount is max, burn all tokens (common pattern used to avoid dust)
+     */
+    function burn(address from, uint256 amount) external {
+        if (amount == type(uint256).max) {
+            amount = balanceOf(from);
+        }
+        _mintAccrueInterest(from);
+        _burn(from, amount);
+    }
+
+    /**
      * @notice Amount of tokens that have been minted to the user + interest
      * @param user address of the user
      */
@@ -88,21 +103,58 @@ contract RebaseToken is ERC20 {
         return (super.balanceOf(user) + _calculateUserAccumulatedInterestSinceLastUpdated(user) / PRECISION);
     }
 
+    /**
+     * Transfer tokens from the user to another user
+     * @param to  address to transfer tokens to
+     * @param amount  amount of tokens to transfer
+     * @return bool true if the transfer was successful
+     */
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        _mintAccrueInterest(to);
+        _mintAccrueInterest(msg.sender);
+        if (amount == type(uint256).max) {
+            amount = balanceOf(msg.sender);
+        }
+        if (balanceOf(to) == 0) {
+            s_userInterestRate[to] = s_userInterestRate[msg.sender];
+        }
+
+        return super.transfer(to, amount);
+    }
+
+    /**
+     * Transfer tokens from the user to another user
+     * @param from  address to transfer tokens from
+     * @param to  address to transfer tokens to
+     * @param amount  amount of tokens to transfer
+     * @return bool true if the transfer was successful
+     */
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        _mintAccrueInterest(to);
+        _mintAccrueInterest(from);
+        if (amount == type(uint256).max) {
+            amount = balanceOf(from);
+        }
+        if (balanceOf(to) == 0) {
+            s_userInterestRate[to] = s_userInterestRate[from];
+        }
+        return super.transferFrom(from, to, amount);
+    }
+
     /////////////////////////////
     /// Internal
     /////////////////////////////
 
     /**
-     * @notice Mint tokens to the user and accrue interest
+     * @notice Calculates and mints tokens accrue interest tokens to the user and update the last updated time
      * @param to address to mint tokens to
      */
     function _mintAccrueInterest(address to) internal {
-        // Principle balance : balance of rebase token that has been minted
-        // Current balance including interest => balanceOf
-        // amount of tokens that need to be minted => balanceOf - principle balance
-        // Call mint
-        // Set the users last updated time
+        uint256 principleBalance = super.balanceOf(to);
+        uint256 principleBalanceWithInterest = balanceOf(to);
+        uint256 amountToMint = principleBalanceWithInterest - principleBalance;
         s_userLastUpdated[to] = block.timestamp;
+        _mint(to, amountToMint);
     }
 
     /**
@@ -113,7 +165,7 @@ contract RebaseToken is ERC20 {
     function _calculateUserAccumulatedInterestSinceLastUpdated(address user) internal view returns (uint256) {
         uint256 timeSinceLastUpdated = block.timestamp - s_userLastUpdated[user];
 
-        return ((s_userInterestRate[user] * timeSinceLastUpdated) * PRECISION);
+        return ((super.balanceOf(user) * s_userInterestRate[user] * timeSinceLastUpdated) * PRECISION);
     }
 
     /////////////////////
@@ -123,15 +175,35 @@ contract RebaseToken is ERC20 {
     /**
      * @notice Get the current interest rate
      * @param user  address of the user
+     * @return uint256 interest rate of the user
      */
     function getUserInterestRate(address user) external view returns (uint256) {
         return s_userInterestRate[user];
     }
 
     /**
+     * @notice Get the principle balance of the user. This is the balance of the user before any interest has been accrued.
+     * @param user address of the user
+     * @return uint256 principle balance of the user
+     */
+    function getPrincipleBalance(address user) external view returns (uint256) {
+        return super.balanceOf(user);
+    }
+
+    /**
      * @notice Get the current interest rate
+     * @return uint256 current interest rate
      */
     function getInterestRate() external view returns (uint256) {
         return s_interestRate;
+    }
+
+    /**
+     * @notice Get the last updated time
+     * @param user address of the user
+     * @return uint256 last updated time
+     */
+    function getUserLastUpdated(address user) external view returns (uint256) {
+        return s_userLastUpdated[user];
     }
 }

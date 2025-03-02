@@ -26,6 +26,12 @@ contract RebaseTokenTest is Test {
         assertEq(rebaseToken.getInterestRate(), INITIAL_INTEREST_RATE - 1);
     }
 
+    function testSetInterestRateShouldRevertIfNotOwner() public {
+        vm.prank(ALICE);
+        vm.expectRevert("Ownable: caller is not the owner");
+        rebaseToken.setInterestRate(INITIAL_INTEREST_RATE - 1);
+    }
+
     function testSetInterestRateShouldRevertIfIncrease() public {
         vm.expectRevert(
             abi.encodeWithSignature(
@@ -50,14 +56,39 @@ contract RebaseTokenTest is Test {
         assertEq(rebaseToken.balanceOf(ALICE), 100);
     }
 
-    // function testMintShouldMintTokensToUserAndAccrueInterest() public mint(100, ALICE) {
-    //     assertEq(rebaseToken.balanceOf(ALICE), 100);
+    function testMintShouldMintTokensToUserAndUpdateLastUpdated() public mint(100, ALICE) {
+        assertEq(rebaseToken.getUserLastUpdated(ALICE), block.timestamp);
 
-    //     // Interest rate is 5%
-    //     vm.warp(block.timestamp + 1);
-    //     rebaseToken.mint(ALICE, 100);
-    //     assertEq(rebaseToken.balanceOf(ALICE), 200);
-    // }
+        vm.warp(block.timestamp + 1);
+        rebaseToken.mint(ALICE, 100);
+        assertEq(rebaseToken.getUserLastUpdated(ALICE), block.timestamp);
+    }
+
+    function testMintShouldMintTokensToUserAndAccrueInterest() public mint(100, ALICE) {
+        uint256 balanceBefore = rebaseToken.balanceOf(ALICE);
+        assertEq(balanceBefore, 100);
+
+        // Interest rate is 5%
+        uint256 timeElapsed = 1; // 1 second
+        vm.warp(block.timestamp + timeElapsed);
+
+        uint256 increaseAmount = 100;
+
+        rebaseToken.mint(ALICE, increaseAmount);
+
+        uint256 interestRateWithTimeElapsed = (INITIAL_INTEREST_RATE * timeElapsed * PRECISION);
+
+        uint256 expectedAmount =
+            balanceBefore + (balanceBefore * interestRateWithTimeElapsed / PRECISION) + increaseAmount;
+
+        assertEq(rebaseToken.balanceOf(ALICE), expectedAmount);
+    }
+
+    /* burn */
+    function testBurnShouldBurnTokensFromUser() public mint(100, ALICE) {
+        rebaseToken.burn(ALICE, 100);
+        assertEq(rebaseToken.balanceOf(ALICE), 0);
+    }
 
     /* getUserInterestRate */
     function testGetUserInterestRate() public mint(100, ALICE) {
