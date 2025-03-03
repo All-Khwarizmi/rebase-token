@@ -51,7 +51,7 @@ contract Vault {
      * Deposits the user's funds into the vault
      */
     function deposit() external payable {
-        i_rebaseToken.mint(msg.sender, msg.value);
+        i_rebaseToken.mint(msg.sender, msg.value, i_rebaseToken.getUserInterestRate(msg.sender));
         emit Deposit(msg.sender, msg.value);
     }
 

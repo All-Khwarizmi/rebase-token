@@ -19,7 +19,7 @@ contract RebaseTokenTest is Test {
     }
 
     modifier mint(uint256 amount, address to) {
-        rebaseToken.mint(to, amount);
+        rebaseToken.mint(to, amount, INITIAL_INTEREST_RATE);
         _;
     }
 
@@ -55,7 +55,7 @@ contract RebaseTokenTest is Test {
     /* mint */
     function testMintShouldMintTokensToUser() public {
         assertEq(rebaseToken.balanceOf(ALICE), 0);
-        rebaseToken.mint(ALICE, 100);
+        rebaseToken.mint(ALICE, 100, rebaseToken.getUserInterestRate(ALICE));
         assertEq(rebaseToken.balanceOf(ALICE), 100);
     }
 
@@ -63,7 +63,7 @@ contract RebaseTokenTest is Test {
         assertEq(rebaseToken.getUserLastUpdated(ALICE), block.timestamp);
 
         vm.warp(block.timestamp + 1);
-        rebaseToken.mint(ALICE, 100);
+        rebaseToken.mint(ALICE, 100, rebaseToken.getUserInterestRate(ALICE));
         assertEq(rebaseToken.getUserLastUpdated(ALICE), block.timestamp);
     }
 
@@ -77,7 +77,7 @@ contract RebaseTokenTest is Test {
 
         uint256 increaseAmount = 100;
 
-        rebaseToken.mint(ALICE, increaseAmount);
+        rebaseToken.mint(ALICE, increaseAmount, rebaseToken.getUserInterestRate(ALICE));
 
         uint256 interestRateWithTimeElapsed = (INITIAL_INTEREST_RATE * timeElapsed + PRECISION);
 
