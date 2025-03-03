@@ -19,7 +19,7 @@ contract RebaseTokenPool is TokenPool {
         _validateLockOrBurn(lockOrBurnIn);
         address originalSender = lockOrBurnIn.originalSender;
         uint256 userInterest = IRebaseToken(address(i_token)).getUserInterestRate(originalSender);
-        IRebaseToken(address(i_token)).burn(originalSender, lockOrBurnIn.amount);
+        IRebaseToken(address(i_token)).burn(address(this), lockOrBurnIn.amount);
 
         lockOrBurnOut = Pool.LockOrBurnOutV1({
             destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector),

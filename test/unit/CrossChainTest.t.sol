@@ -34,6 +34,7 @@ contract CrossChainTest is Test {
     RebaseTokenPool arbSepoliaPool;
     Vault vault;
     uint256 amount = 100 ether;
+    uint256 constant SEND_VALUE = 1e5;
 
     address bob = makeAddr("bob");
     address owner = makeAddr("owner");
@@ -44,7 +45,7 @@ contract CrossChainTest is Test {
     uint256 arbSepoliaFork;
 
     function setUp() public {
-        sepoliaFork = vm.createSelectFork("sepolia");
+        sepoliaFork = vm.createSelectFork("sepolia-eth");
         arbSepoliaFork = vm.createFork("arb-sepolia");
 
         ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
@@ -103,6 +104,8 @@ contract CrossChainTest is Test {
             address(arbSepoliaToken), address(arbSepoliaPool)
         );
 
+        vm.stopPrank();
+
         configureTokenPool(
             sepoliaFork,
             address(sepoliaPool),
@@ -110,6 +113,7 @@ contract CrossChainTest is Test {
             address(arbSepoliaPool),
             address(arbSepoliaToken)
         );
+
         configureTokenPool(
             arbSepoliaFork,
             address(arbSepoliaPool),
@@ -118,7 +122,7 @@ contract CrossChainTest is Test {
             address(sepoliaToken)
         );
 
-        vm.stopPrank();
+        console.log("END SETUP");
     }
 
     function configureTokenPool(
@@ -128,6 +132,8 @@ contract CrossChainTest is Test {
         address remotePool,
         address remoteTokenAddress
     ) private {
+        console.log("START CONFIGURE");
+
         vm.selectFork(fork);
         vm.prank(owner);
         TokenPool.ChainUpdate[] memory chainsIdToAdd = new TokenPool.ChainUpdate[](1);
@@ -144,6 +150,7 @@ contract CrossChainTest is Test {
         });
 
         TokenPool(localPool).applyChainUpdates(chainsIdToAdd);
+        console.log("END CONFIGURE");
     }
 
     function bridgeTokens(
@@ -155,6 +162,7 @@ contract CrossChainTest is Test {
         RebaseToken localToken,
         RebaseToken remoteToken
     ) public {
+        console.log("START BRIDGE");
         vm.selectFork(localFork);
 
         Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
@@ -165,7 +173,7 @@ contract CrossChainTest is Test {
             data: "",
             tokenAmounts: tokenAmounts,
             feeToken: localNetworkDetails.linkAddress,
-            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 0}))
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 1_000_000}))
         });
 
         uint256 fee =
@@ -207,5 +215,27 @@ contract CrossChainTest is Test {
         uint256 remoteUserInterestRate = remoteToken.getUserInterestRate(user);
 
         assertEq(remoteUserInterestRate, localUserInterestRate);
+        console.log("END BRIDGE");
+    }
+
+    function testBridgeAllTokens() public {
+        vm.selectFork(sepoliaFork);
+
+        vm.startPrank(user);
+        vault.deposit{value: SEND_VALUE}();
+
+        assertEq(sepoliaToken.balanceOf(user), SEND_VALUE);
+
+        bridgeTokens(
+            SEND_VALUE,
+            sepoliaFork,
+            arbSepoliaFork,
+            sepoliaNetworkDetails,
+            arbSepoliaNetworkDetails,
+            sepoliaToken,
+            arbSepoliaToken
+        );
+
+
     }
 }
