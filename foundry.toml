@@ -9,6 +9,7 @@ remappings = [
     '@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/',
     '@openzeppelin/contracts=lib/openzeppelin-contracts/contracts',
     '@ccip/=lib/ccip',
+    "@chainlink-local/=lib/chainlink-local/src/",
 ]
 
 [etherscan]
